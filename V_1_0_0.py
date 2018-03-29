@@ -4,113 +4,65 @@
 
 
 
-from PyQt5.QtCore import (Qt,QThread,pyqtSignal)
+from PyQt5.QtCore import QThread, QObject, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import (QApplication, QGridLayout, QGroupBox, QVBoxLayout,QHBoxLayout, QWidget, QLabel, QLineEdit)
 
-from picamera.array import PiRGBArray
-from picamera import PiCamera
-
-
-from scipy.spatial import distance as dist
-from imutils.video import FileVideoStream
-from imutils.video import VideoStream
-from imutils import face_utils
 import numpy as np
 import time
-import imutils
-import dlib
-import cv2
 
-class TestSignal(QThread):
 
-    progress = pyqtSignal(int)
+class TestSignal(QObject):
+
+    progress_signzl = pyqtSignal(int)
+    finished =pyqtSignal()
+
+    def __init__(self, parent=None):
+        super(TestSignal,self).__init__(parent)
+        self.num =0
     
-    def __init__(self):
-        super(TestSignal,self).__init__()
-
-    def __del__(self):
-        self.wait()
-
-    def run(self):
-        for i in range(100):
-            self.progress.emit(i)
+    def progress(self):
+        for i in range(10):
+            i+=self.num
+            self.progress_signzl.emit(i)
             time.sleep(1)
+        self.finished.emit()
 
+    def setterNum(self,nuu):
+        self.num = nuu
+        
     
 class MainWindow(QWidget):
+    
     def __init__(self, parent=None):
         super(MainWindow,self).__init__(parent)
         
         grid = QGridLayout()
-        #grid.addWidget(self.mainUIProgress(),0,0)
-        #grid.addWidget(self.createExampleGroup(),1,0)
         
         self.label = QLabel("jju")
         grid.addWidget(self.label,0,0)
-        self.thread = TestSignal()
-        self.thread.progress.connect(self.updateDate)
-        self.thread.start()
+        self.work = TestSignal()
+        self.thread = QThread()
+        self.work.progress_signzl.connect(self.updateDate)
+        self.work.moveToThread(self.thread)
+        self.work.finished.connect(self._finished)
+        nuu=5
+        self.thread.started.connect(self.work.progress)
+        
+        self.thread.start()      
         QApplication.processEvents()
         self.setLayout(grid)
         self.setWindowTitle("EXPRESSION DATA")
         self.resize(400,300)
 
-        
-
-    def createExampleGroup(self):
-        groupBox=QGroupBox("MOUTH TRACKER")
-        mouthStateClosed = QLabel("MOUTH CLOSED COUNTER : ")
-        mouthStateOpened = QLabel("MOUTH OPENED COUNTER : ")
-        mouthState = QLabel("MOUTH STATE : ")
-        
-        childData = QVBoxLayout()
-    
-        
-        childData.addWidget(mouthStateClosed)
-        childData.addWidget(mouthStateOpened)
-        childData.addWidget(mouthState)
-        childData.addStretch(1)
-        groupBox.setLayout(childData)
-
-        return groupBox
-
-    def mainUIProgress(self):
-        groupBox=QGroupBox("FACE NAVIGATION")
-        patternPrediction = QLabel("PREDICTION : ")
-        patternPredictionValue = QLabel("j")
-        activateWindow = QLabel("ACTIVATED FRAME : ")
-
-        self.thread = TestSignal()
-        self.thread.progress.connect(self.updateDate)
-        self.thread.start()
-
-        
-        
-        patternPredictionValue = QLabel()
-        activateWindowValue = QLabel("MAIN")
-
-        
-        
-        verticalLayout = QVBoxLayout()
-        horizontalLayout = QHBoxLayout()
-        horizontalLayout1 = QHBoxLayout()
-
-        horizontalLayout.addWidget(patternPrediction)
-        horizontalLayout.addWidget(patternPredictionValue)
-        horizontalLayout1.addWidget(activateWindow)
-        horizontalLayout1.addWidget(activateWindowValue)
-        
-        
-        verticalLayout.addLayout(horizontalLayout)
-        verticalLayout.addLayout(horizontalLayout1)
-        verticalLayout.addStretch(1)
-        groupBox.setLayout(verticalLayout)
-
-        return groupBox
-
     def updateDate(self,value):
-        print(str(value))
         self.label.setText(str(value))
+
+    def _finished(self):
+        print("FINISHED.START AGAIN")
+        self.thread.quit()
+        self.thread.wait()
+        self.work.setterNum(5)
+        self.thread.start()
 
 if __name__ == '__main__':
     import sys
