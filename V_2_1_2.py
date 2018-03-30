@@ -1,6 +1,6 @@
 # FINAL VERSION OF 2.0
-from PyQt5.QtCore import QDate, QTime, QDateTime, Qt,QTimer, pyqtSlot, pyqtSignal
-from PyQt5.QtWidgets import QGridLayout,QDockWidget,QApplication,QWidget,QLabel, QVBoxLayout, QMainWindow
+from PyQt5.QtCore import QDate, QTime, QDateTime, Qt,QTimer, pyqtSlot, pyqtSignal, QObject, QThread
+from PyQt5.QtWidgets import QGridLayout,QDockWidget,QApplication,QWidget,QLabel, QVBoxLayout, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout
 
 from picamera.array import PiRGBArray
 from picamera import PiCamera
@@ -101,6 +101,8 @@ class Navigation(QObject):
     RightEye_Open_progress = pyqtSignal(int)
     RightEye_Close_progress = pyqtSignal(int)
     RightEye_State_progress = pyqtSignal(str)
+    Pattern_progress = pyqtSignal(str)
+    finished = pyqtSignal()
 
     def __init__(self):
         super(Navigation,self).__init__()
@@ -225,11 +227,12 @@ class Navigation(QObject):
         print("[INFO-NAVIGATION FUNCTION CLASS]  : handlerSignalReceiver(self,winType) called.")
         
         if self.winType == "MainWin":
-            navigationMode_1()
+            print("DEBUG POINT 1")
+            navigationMode_1(self)
         elif self.winType == "SubWin":
             navigationMode_2()
         else:
-            return error="ERROR"
+            print("ERROR SETTER")
     
     def navigationMode_1(self):
 
@@ -387,30 +390,31 @@ class Navigation(QObject):
                         print("[STATUS] : MOUTH NOT DEFINED VALIDATED")
                         self.CURRENT_MOUTH_STATE = "NOT DEFINED"
                         print("[STATUS] : MOUTH NOT DEFINED VALIDATED SIGNAL WILL BE SENT")
-                        self..emit(self.CURRENT_MOUTH_STATE)
+                        self.Mouth_State_progress.emit(self.CURRENT_MOUTH_STATE)
                         print("[STATUS] : MOUTH NOT DEFINED VALIDATED SIGNAL SENT")
 
 #_____STAGE_3___________________________________________________________________________________________________
                 print("[STATUS] : DEBUGGER POINT 11_")
 
 
-                if LEFT_EYE_OPEN_TOTAL != 1 or LEFT_EYE_CLOSE_TOTAL != 1 :
-                    PREVIOUS_LEFT_EYE_STATE = CURRENT_LEFT_EYE_STATE
-                if RIGHT_EYE_OPEN_TOTAL != 1 or RIGHT_EYE_CLOSE_TOTAL != 1 :
-                    PREVIOUS_RIGHT_EYE_STATE = CURRENT_RIGHT_EYE_STATE
-                if TOTAL_MOUTH_CLOSE_TOTAL != 1 or TOTAL_MOUTH_OPEN_TOTAL != 1 :
-                    PREVIOUS_MOUTH_STATE = CURRENT_MOUTH_STATE
+                if self.LEFT_EYE_OPEN_TOTAL != 1 or self.LEFT_EYE_CLOSE_TOTAL != 1 :
+                    self.PREVIOUS_LEFT_EYE_STATE = self.CURRENT_LEFT_EYE_STATE
+                if self.RIGHT_EYE_OPEN_TOTAL != 1 or self.RIGHT_EYE_CLOSE_TOTAL != 1 :
+                    self.PREVIOUS_RIGHT_EYE_STATE = self.CURRENT_RIGHT_EYE_STATE
+                if self.TOTAL_MOUTH_CLOSE_TOTAL != 1 or self.TOTAL_MOUTH_OPEN_TOTAL != 1 :
+                    self.PREVIOUS_MOUTH_STATE = self.CURRENT_MOUTH_STATE
                 
 
-                if PREVIOUS_LEFT_EYE_STATE == CURRENT_LEFT_EYE_STATE and \
-                  PREVIOUS_RIGHT_EYE_STATE == CURRENT_RIGHT_EYE_STATE and PREVIOUS_MOUTH_STATE == CURRENT_MOUTH_STATE :
+                if self.PREVIOUS_LEFT_EYE_STATE == self.CURRENT_LEFT_EYE_STATE and \
+                  self.PREVIOUS_RIGHT_EYE_STATE == self.CURRENT_RIGHT_EYE_STATE and self.PREVIOUS_MOUTH_STATE == self.CURRENT_MOUTH_STATE :
                     self.patternCaller +=1
                 else:
                     self.patternCaller =0
 
                 if self.patternCaller > 4:
                     self.patternResult = eightCombo(self,CURRENT_LEFT_EYE_STATE, CURRENT_RIGHT_EYE_STATE, CURRENT_MOUTH_STATE)
-                    #emit signal with this result
+                    self.Pattern_progress.emit(self.patternResult)
+                    self.finished.emit()
                     self.rawCapture.close()
                     self.camera.close()
 
@@ -557,7 +561,7 @@ class Navigation(QObject):
                         self.camera.close()
 
                     else:
-                        #emit signal with this result
+                        print("signal emitter")
 
             self.rawCapture.truncate(0)
             print("[INFO] : DONE THIS FRAME.NEXT FRAME")
@@ -614,11 +618,11 @@ class MainWindow(QWidget):
         self.work.RightEye_Open_progress.connect(self.updateDataREO)
         self.work.RightEye_Close_progress.connect(self.updateDataREC)
         self.work.RightEye_State_progress.connect(self.updateDataRES)
-        
+        self.work.Pattern_progress.connect(self.updateDataWIN)
        
         self.work.moveToThread(self.thread)
         self.work.finished.connect(self._finished)
-        self.thread.started.connect(self.work.handlerSignalReceiver)
+        self.thread.started.connect(self.work.navigationMode_1)
         self.thread.start()  
         
         QApplication.processEvents()
@@ -713,12 +717,26 @@ class MainWindow(QWidget):
         print(value)
         self.rightEyeConditionValue.setText(value)
 
+    def updateDataWIN(self,value):
+        print(value)
+        self.activateWindowValue.setText(value)
+
+    def _finished(self):
+        print("FINISHED.START AGAIN")
+        self.thread.quit()
+        self.thread.wait()
+        self.work.setWindowType('SubWin')
+        self.thread.start()
+
+
+    
+
 #=============================================================================================================
 
 if __name__ == "__main__":
    
     app = QApplication(sys.argv)
-    win = MainWindow()
-    win.showFullScreen()
+    win_sts = MainWindow()
+    win_sts.showFullScreen()
     sys.exit(app.exec_())
     
