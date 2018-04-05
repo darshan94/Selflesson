@@ -1,6 +1,7 @@
 # By Darshan
-# Create GUI qt
-# Version 3
+# Integrate GUI qt with backend
+# Version 4
+
 
 from PyQt5.QtCore import QDate, QTime, QDateTime, Qt,QTimer, pyqtSlot, pyqtSignal, QObject, QThread
 from PyQt5.QtWidgets import QGridLayout,QDockWidget,QApplication,QWidget,QLabel, QVBoxLayout, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout
@@ -14,15 +15,18 @@ import dlib
 import cv2
 
 
-class FACE_AUTHENICATION():
-    #user_Recognized = pyqtSignal(str)
-    #user_Not_Recognized = pyqtSignal(str)
-    #no_face_detected = pyqtSignal()
-    #face_detected = pyqtSignal()
-    #finished =pyqtSignal()
+class FACE_AUTHENICATION(QObject):
+    user_Recognized = pyqtSignal()
+    user_Not_Recognized = pyqtSignal()
+    no_face_detected = pyqtSignal()
+    face_detected = pyqtSignal()
+    process_Status = pyqtSignal(str)
+    finished =pyqtSignal()
 
     def __init__(self, parent=None):
-        super(FACE_AUTHENICATION,self).__init__()
+        super(FACE_AUTHENICATION,self).__init__(parent)
+
+        print("[INFO_FACERECOGNITION] : FACE RECOGNITION CONSTRUCTOR CALLED")
 
         self.HAAR_FACES = 'haarcascade_frontalface.xml'
         self.TRAINING_FILE = 'training.xml'
@@ -32,6 +36,16 @@ class FACE_AUTHENICATION():
         self.HAAR_MIN_SIZE = (30, 30)
         self.FACE_WIDTH = 92
         self.FACE_HEIGHT = 112
+
+        self.recognitionAlgorithm = 1
+        self.lbphThreshold = 80
+        self.current_user = None
+        self.last_match = 0
+        self.detection_active = True
+        self.same_user_detected_in_row = 0
+
+        self.model = cv2.face.LBPHFaceRecognizer_create(self.lbphThreshold)
+        self.model.read(self.TRAINING_FILE)
 
     def detect_single(self,image):
 
@@ -53,18 +67,7 @@ class FACE_AUTHENICATION():
     
     def _FACE_RECOGNITION(self):
         
-        self.recognitionAlgorithm = 1
-        self.lbphThreshold = 80
-        self.current_user = None
-        self.last_match = 0
-        self.detection_active = True
-        self.same_user_detected_in_row = 0
-
-    
-        print("[INFO_FACERECOGNITION] : Loads resource for Face_Recognition")
-
-        self.model = cv2.face.LBPHFaceRecognizer_create(self.lbphThreshold)
-        self.model.read(self.TRAINING_FILE)
+        
         print("[INFO_FACERECOGNITION] : CAMERA WARMING UP")
         
         self.camera = PiCamera()
@@ -84,14 +87,16 @@ class FACE_AUTHENICATION():
             self.Face_image = cv2.cvtColor(self.Face_image, cv2.COLOR_RGB2GRAY)
             self.result = self.detect_single(self.Face_image)
             if self.result is None:                                                                                                              # Set x,y coordinates, height and width from face detection result
-                print("[INFO_FACERECOGNITION] : No face is detected ")
-                
-                #self.no_face_detected.emit()
+                print("[INFO_FACERECOGNITION] : NO FACE FOUND ")
+                self.no_face_detected.emit()
+                self.FaceDetect = "NO FACE FOUND"
+                self.process_Status.emit(self.FaceDetect)
                 self.rawCapture.truncate(0)
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord("q"):
-                    break
                 continue
+
+            self.FaceDetect = "FACE FOUND"
+            self.process_Status.emit(self.FaceDetect)
+            self.face_detected.emit()
             
             self.x, self.y, self.w, self.h = self.result # Crop image on face. If algorithm is not LBPH also resize because in all other algorithms image resolution has to be the same as training image resolution.
 
@@ -108,77 +113,99 @@ class FACE_AUTHENICATION():
                     # if same user as last time increment same_user_detected_in_row +1
                     self.same_user_detected_in_row += 1
                     print("[STATUS] : INCREMENT 1")
-                    self.STATUS = 'SAME MATCH'
+                    self.STATUS = 'SAME MATCH FOUND.STAY IDLE'
+                    self.process_Status.emit(self.STATUS)
                 if self.label != self.last_match:
                     # if the user is diffrent reset same_user_detected_in_row back to 0
                     self.same_user_detected_in_row = 0
                     print("[STATUS] : RESET COUNTER ")
-                    self.STATUS = 'RESET COUNTER'
+                    self.STATUS = 'DIFFERENT MATCH FOUND.STAY IDLE'
+                    self.process_Status.emit(self.STATUS)
                 # A user only gets logged in if he is predicted twice in a row minimizing prediction errors.
                 if  (self.same_user_detected_in_row > 5):
-                    
-                    # Callback current user to node helper
                     print("[STATUS] : USER LOG IN ")
                     self.STATUS = 'USER LOG IN'
-                    return True
+                    self.user_Recognized.emit()
+                    self.process_Status.emit(self.STATUS)
                     break
                 # set last_match to current prediction
                 self.last_match = self.label
                 print("[STATUS] : MATCH FOUND")
-                self.STATUS = 'MATCH FOUND'
+                self.STATUS = 'SAME MATCH FOUND.STAY IDLE'
+                self.process_Status.emit(self.STATUS)
 
             else:
                 print("[STATUS] : USER NOT RECOGNIZED  ")
                 self.STATUS = 'USER NOT RECOGNIZED'
-                return False
-                cv2.imshow("FRAME", image)
+                self.process_Status.emit(self.STATUS)
+                self.user_Not_Recognized.emit()
                 self.rawCapture.truncate(0)
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord("q"):
-                    break
-                continue
+                break
 
             self.rawCapture.truncate(0)
 
         self.camera.close()
-        cv2.destroyAllWindows()
-   
+        self.finished.emit()  
 
 class FACE_RECOGNITION_GUI(QWidget):
     
     def __init__(self, parent=None):
         super(FACE_RECOGNITION_GUI,self).__init__(parent)
+
+        self.USER_RECOGNIZED = False
         
         grid = QGridLayout()
         
         self.AUTHENICATION_STATUS = QLabel("STATUS : ")
         self.AUTHENICATION_STATUS.setAlignment(Qt.AlignCenter)
         grid.addWidget(self.AUTHENICATION_STATUS,0,0)
-        #self.work = TestSignal()
-        #self.thread = QThread()
-        #self.work.progress_signzl.connect(self.updateDate)
-        #self.work.moveToThread(self.thread)
-        #self.work.finished.connect(self._finished)
-        #nuu=5
-        #self.thread.started.connect(self.work.progress)
         
-        #self.thread.start()      
+        self.backend_work = FACE_AUTHENICATION()
+        self.thread_A = QThread()
+        
+        self.backend_work.user_Recognized.connect(self.userRecognized)
+        self.backend_work.user_Not_Recognized.connect(self.userNotRecognized)
+        #self.backend_work.no_face_detected.connect(self.updateDate)
+        #self.backend_work.face_detected.connect(self.updateDate)
+        self.backend_work.process_Status.connect(self.updateStatusData)
+        self.backend_work.finished.connect(self._FINISHED)
+
+        
+        self.backend_work.moveToThread(self.thread_A)
+        
+        self.thread_A.started.connect(self.backend_work._FACE_RECOGNITION)
+        self.thread_A.start()
+        
         QApplication.processEvents()
         self.setLayout(grid)
         self.setWindowTitle("FACE RECOGNITION")
         self.resize(400,300)
 
-    #def updateDate(self,value):
-        #self.label.setText(str(value))
+    def updateStatusData(self,value):
+        self.AUTHENICATION_STATUS.setText("STATUS : "+ value)
 
-   # def _finished(self):
-       # print("FINISHED.START AGAIN")
-       # self.thread.quit()
-       # self.thread.wait()
-       # self.work.setterNum(5)
-      #  self.thread.start()
+    def _FINISHED(self):
+        print("[INFO-FACE-RECOGNITION-GUI] : FINISH SIGNAL RECEIVED")
+        self.thread_A.quit()
+        self.thread_A.wait()
+        if self.USER_RECOGNIZED == False:
+            time.sleep(2)
+            self.AUTHENICATION_STATUS.setText("STATUS : RECOGNIZATION STARTED AGAIN")
+            time.sleep(1)                                  
+            self.thread_A.start()
 
+        else:
+            self.hide()
+            time.sleep(10)
+            self.show()                                              
+          
+    def userNotRecognized(self):
+        print("[INFO-FACE-RECOGNITION-GUI] : USER_NOT_RECOGNIZED SIGNAL RECEIVED")
+        self.USER_RECOGNIZED = False
 
+    def userRecognized(self):
+        print("[INFO-FACE-RECOGNITION-GUI] : USER_RECOGNIZED SIGNAL RECEIVED")
+        self.USER_RECOGNIZED = True
 
 if __name__ == "__main__":
    
