@@ -1,6 +1,10 @@
 # By Darshan
-# Convert Normal Function into Class form
-# Version 2
+# Create GUI qt
+# Version 3
+
+from PyQt5.QtCore import QDate, QTime, QDateTime, Qt,QTimer, pyqtSlot, pyqtSignal, QObject, QThread
+from PyQt5.QtWidgets import QGridLayout,QDockWidget,QApplication,QWidget,QLabel, QVBoxLayout, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout
+
 
 from picamera.array import PiRGBArray
 from picamera import PiCamera
@@ -140,14 +144,50 @@ class FACE_AUTHENICATION():
         cv2.destroyAllWindows()
    
 
+class FACE_RECOGNITION_GUI(QWidget):
+    
+    def __init__(self, parent=None):
+        super(FACE_RECOGNITION_GUI,self).__init__(parent)
+        
+        grid = QGridLayout()
+        
+        self.AUTHENICATION_STATUS = QLabel("STATUS : ")
+        self.AUTHENICATION_STATUS.setAlignment(Qt.AlignCenter)
+        grid.addWidget(self.AUTHENICATION_STATUS,0,0)
+        #self.work = TestSignal()
+        #self.thread = QThread()
+        #self.work.progress_signzl.connect(self.updateDate)
+        #self.work.moveToThread(self.thread)
+        #self.work.finished.connect(self._finished)
+        #nuu=5
+        #self.thread.started.connect(self.work.progress)
+        
+        #self.thread.start()      
+        QApplication.processEvents()
+        self.setLayout(grid)
+        self.setWindowTitle("FACE RECOGNITION")
+        self.resize(400,300)
 
+    #def updateDate(self,value):
+        #self.label.setText(str(value))
+
+   # def _finished(self):
+       # print("FINISHED.START AGAIN")
+       # self.thread.quit()
+       # self.thread.wait()
+       # self.work.setterNum(5)
+      #  self.thread.start()
 
 
 
 if __name__ == "__main__":
    
-    testObj = FACE_AUTHENICATION()
-    testObj._FACE_RECOGNITION()
+    import sys
+    app = QApplication(sys.argv)
+    analysisWin = FACE_RECOGNITION_GUI()
+    analysisWin.show()
+    #analysisWin.showFullScreen()
+    sys.exit(app.exec_())
 
 
 
