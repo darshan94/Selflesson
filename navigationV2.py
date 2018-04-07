@@ -29,7 +29,7 @@ class Navigation(QObject):
     RightEye_Close_progress = pyqtSignal(int)
     RightEye_State_progress = pyqtSignal(str)
     Pattern_progress = pyqtSignal(str)
-    finished = pyqtSignal()
+    finished = pyqtSignal(str)
 
     def __init__(self):
         super(Navigation,self).__init__()
@@ -38,7 +38,7 @@ class Navigation(QObject):
 
         self.Pbreak = False
 
-        self.winType = "MainWin"
+        self.winType = "SubWin"
 
         print("[INFO-NAVIGATION FUNCTION CLASS] : Loading Necessary File")
         
@@ -52,11 +52,7 @@ class Navigation(QObject):
         print("[INFO-NAVIGATION FUNCTION CLASS]  : Camera Initialization Started ")
         
         
-        self.camera = PiCamera()
-        self.camera.resolution = (640,480)
-        self.camera.framerate = 32
-        self.rawCapture = PiRGBArray(self.camera, size=(640,480))
-        self.stream = self.camera.capture_continuous(self.rawCapture, format="bgr", use_video_port = True )
+        
         
         print("[INFO-NAVIGATION FUNCTION CLASS]  : Camera Initialization Completed.Camera warming up to 4s")
 
@@ -153,6 +149,9 @@ class Navigation(QObject):
         self.TOTAL_MOUTH_CLOSE_TOTAL = 0
         self.open_Counter = 0
         self.closed_Counter = 0
+
+        self.patternSender = 'NONE'
+        self.Pbreak = False
         
 
     def setWindowType(self,windowType):
@@ -174,7 +173,13 @@ class Navigation(QObject):
 
         print("[INFO-NAVIGATION FUNCTION CLASS] : navigationMode_1() is called")
         print("[STATUS] : NAVIGATION MODE 1 STARTED")
- 
+
+        self.camera = PiCamera()
+        self.camera.resolution = (640,480)
+        self.camera.framerate = 32
+        self.rawCapture = PiRGBArray(self.camera, size=(640,480))
+        self.stream = self.camera.capture_continuous(self.rawCapture, format="bgr", use_video_port = True )
+        
         for f in self.stream:
             self.image = f.array
             print("[STATUS] : Reading Frame")
@@ -335,7 +340,7 @@ class Navigation(QObject):
                 if self.winType == "MainWin":
                     self.patternSender = self.eight_Combo(self.CURRENT_LEFT_EYE_STATE, self.CURRENT_RIGHT_EYE_STATE, self.CURRENT_MOUTH_STATE)
                     if self.patternSender != 'VALUE_ERROR':
-                        self.Pattern_progress.emit(self.patternSender)
+                        #self.Pattern_progress.emit(self.patternSender)
                         self.Pbreak = True
                         break
 
@@ -344,7 +349,9 @@ class Navigation(QObject):
                     self.patternSender = self.threeCombo(self.CURRENT_LEFT_EYE_STATE, self.CURRENT_RIGHT_EYE_STATE)
                     if self.patternSender != 'VALUE_ERROR':
                         print(self.patternSender)
-                        self.Pattern_progress.emit(self.patternSender)
+                        print("[STATUS] : PATTERN SIGNAL SENDING") 
+                        #self.Pattern_progress.emit(self.patternSender)
+                        print("[STATUS] : PATTERN SIGNAL SENT")
                         self.Pbreak = True
                         break
 
@@ -360,8 +367,9 @@ class Navigation(QObject):
         self.rawCapture.close()
         self.camera.close()
         print("FINISHED")
+        
+        self.finished.emit(self.patternSender)
         self.resetter()
-        self.finished.emit()
 
 
 #_____________________________________________________________________________________________
@@ -519,10 +527,12 @@ class DebugWindow(QWidget):
         self.activateWindowValue.setText(value)
 
     def _finished(self):
-        #print("FINISHED.START AGAIN")
+        print("FINISHED.START AGAIN")
         self.thread.quit()
         self.thread.wait()
         self.work.setWindowType('SubWin')
+        time.sleep(3)
+        print("FINISHED.START AGAINsttt")
         self.thread.start()
 
 
@@ -534,7 +544,7 @@ if __name__ == "__main__":
    
     app = QApplication(sys.argv)
     win_sts = DebugWindow()
-    win_sts.showFullScreen()
+    win_sts.show()
     sys.exit(app.exec_())
 
 

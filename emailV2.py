@@ -24,58 +24,61 @@ class EMAIL_BACKEND(QObject):
 
     def __init__(self):
         super(EMAIL_BACKEND,self).__init__()
-        print("[INFO] : EMAIL_BACKEND CONSTRUCTOR HAS BEEN CALLED")
+        print("[INFO - EMAIL_BACKEND ] : EMAIL_BACKEND CONSTRUCTOR HAS BEEN CALLED")
         self.ORG_EMAIL   = "@gmail.com"
         self.FROM_EMAIL  = "drviruz94" + self.ORG_EMAIL
         self.FROM_PWD    = "94revenge"
         self.SMTP_SERVER = "imap.gmail.com"
         self.SMTP_PORT   = 993
-        print("[INFO] : EMAIL_BACKEND CONSTRUCTOR INIATIATED")
+        print("[INFO - EMAIL_BACKEND ] : EMAIL_BACKEND CONSTRUCTOR INIATIATED")
 
     def __del__(self):
         self.wait()
 
     def emailExtractor(self):
-        print("[INFO] : EMAIL_BACKEND RUN() CALLED")
+        print("[INFO - EMAIL_BACKEND ] : EMAIL_BACKEND RUN() CALLED")
         try:
-            print("[INFO] : LOGIN PROCESS BEGAN")
+            print("[INFO - EMAIL_BACKEND ] : LOGIN PROCESS BEGAN")
             self.mail = imaplib.IMAP4_SSL(self.SMTP_SERVER)
             self.mail.login(self.FROM_EMAIL,self.FROM_PWD)
             self.mail.list()
-            print("[INFO] : LOGGED IN")
+            print("[INFO - EMAIL_BACKEND ] : LOGGED IN")
             
             self.mail.select('inbox')
-            print("[INFO] : INBOX ACCESSED")
+            print("[INFO - EMAIL_BACKEND ] : INBOX ACCESSED")
             date = (datetime.date.today() - datetime.timedelta(1)).strftime("%d-%b-%Y")
-            print("[INFO] : FILTERING EMAIL RECEIVED DATE")
+            print("[INFO - EMAIL_BACKEND ] : FILTERING EMAIL RECEIVED DATE")
             type, self.data = self.mail.search(None, 'ALL','(SENTSINCE {date})'.format(date=date))
-            print("[INFO] : MAILS FILTERED")
+            print("[INFO - EMAIL_BACKEND ] : MAILS FILTERED")
             self.mail_ids = self.data[0]
-            print("[INFO] : ID MAILS EXTRACTED")
+            print("[INFO - EMAIL_BACKEND ] : ID MAILS EXTRACTED")
             self.id_list = self.mail_ids.split()
-            print("[INFO] : ID MAILS EXTRACTED PART 2")
+            print("[INFO - EMAIL_BACKEND ] : ID MAILS EXTRACTED PART 2")
             self.num = len(self.id_list)
-            print("[INFO] : ID MAILS EXTRACTED PART 2")
+            print("[INFO - EMAIL_BACKEND ] : ID MAILS EXTRACTED PART 2")
             self.user = "Hi Drviruz"
-            print("[INFO] : OBTAINED USER NAME")
+            print("[INFO - EMAIL_BACKEND ] : OBTAINED USER NAME")
             self.signal_Email_Name.emit(self.user)
-            print("[INFO] : SENT SIGNAL 1")
+            print("[INFO - EMAIL_BACKEND ] : USER NAME SIGNAL FROM EMAIL BACKEND SENT")
             self.signal_Email_Notifications_Num.emit(self.num)
-            print("[INFO] : SENT SIGNAL 2")
+            print("[INFO - EMAIL_BACKEND ] : EMAIL NOTIFICATION SIGNAL FROM EMAIL BACKEND SENT")
             self.emailLoader_finished.emit()
-            print("[INFO] : SENT SIGNAL 3")
+            print("[INFO - EMAIL_BACKEND ] : FINISH SIGNAL FROM EMAIL BACKEND SENT")
         
         except OSError as e:
             print (str(e))
 
     
 class emailWidget(QWidget):
+
+    done_Signal = pyqtSignal()
    
     def __init__(self, parent=None):
         super(emailWidget,self).__init__(parent)
+        print("[INFO - EMAIL_WIDGET ] : EMAIL WIDGET INITIALIZATION CALLED")
 
         self.finished_status = False
-                
+               
         grid = QGridLayout()
 
         self.emailBox=QGroupBox("EMAIL SECTION")
@@ -143,25 +146,33 @@ class emailWidget(QWidget):
         p.setColor(self.backgroundRole(), Qt.black)
         self.setPalette(p)
         self.resize(400,300)
+        #self.
 
     def startEmailBackend(self):
+        self.show()
         self.emailthread.start()
 
     def updateDate(self,value):
-        print(str(value))
+        print("[EMAIL WIDGET GUI STATUS] : USER NAME SIGNAL IS RECEIVED FROM EMAIL BACKEND")
         self.title.setText(str(value))
 
     def updateNotification(self,notificationNo):
+        print("[EMAIL WIDGET GUI STATUS] : EMAIL NOTIFICATION SIGNAL IS RECEIVED FROM EMAIL BACKEND")
         self.mainContent.setText(" YOU HAVE " + str(notificationNo) + " MAILS")
 
     
     def _finished(self):
-        print("FINISHED.START AGAIN")
+        print("[EMAIL WIDGET GUI STATUS] : FINISHED SIGNAL IS RECEIVED FROM EMAIL BACKEND")
         self.emailthread.quit()
         self.emailthread.wait()
 
         self.finished_status = True
         self.opt_debug.setText(str(self.finished_status))
+        self.done_Signal.emit()
+
+    def email_status(self):
+        print("[EMAIL WIDGET GUI STATUS] : email_status(self) IS CALLED " + str(self.finished_status))
+        return self.finished_status
 
     
 
@@ -169,6 +180,6 @@ if __name__ == '__main__':
     import sys
     app = QApplication(sys.argv)
     analysisWin = emailWidget()
-    analysisWin.show()
+    analysisWin.setVisible(0)
     #analysisWin.showFullScreen()
     sys.exit(app.exec_())
