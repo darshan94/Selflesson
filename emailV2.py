@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt,QThread,pyqtSignal,QObject
 from PyQt5.QtWidgets import (QApplication, QGridLayout, QGroupBox, QVBoxLayout,QHBoxLayout, QWidget, QLabel, QLineEdit)
 from PyQt5.QtGui import QPainter, QColor, QPen
 
-
+import CONFIGURATION as UserSettings
 
 import imaplib
 import time
@@ -20,13 +20,12 @@ class EMAIL_BACKEND(QObject):
 
     signal_Email_Name = pyqtSignal(str)
     signal_Email_Notifications_Num = pyqtSignal(int)
-    emailLoader_finished = pyqtSignal()
+    emailLoader_finished = pyqtSignal(str)
 
     def __init__(self):
         super(EMAIL_BACKEND,self).__init__()
         print("[INFO - EMAIL_BACKEND ] : EMAIL_BACKEND CONSTRUCTOR HAS BEEN CALLED")
-        self.ORG_EMAIL   = "@gmail.com"
-        self.FROM_EMAIL  = "drviruz94" + self.ORG_EMAIL
+        self.FROM_EMAIL  = UserSettings.EMAIL_USERNAME
         self.FROM_PWD    = "94revenge"
         self.SMTP_SERVER = "imap.gmail.com"
         self.SMTP_PORT   = 993
@@ -62,7 +61,28 @@ class EMAIL_BACKEND(QObject):
             print("[INFO - EMAIL_BACKEND ] : USER NAME SIGNAL FROM EMAIL BACKEND SENT")
             self.signal_Email_Notifications_Num.emit(self.num)
             print("[INFO - EMAIL_BACKEND ] : EMAIL NOTIFICATION SIGNAL FROM EMAIL BACKEND SENT")
-            self.emailLoader_finished.emit()
+            self.previous_email = "\n"
+            self.previous_email_from = "\n"
+            
+            for self.i in reversed(self.id_list):
+                self.typ, self.data = self.mail.fetch(self.i, '(RFC822)' )
+                for self.response_part in self.data:
+                    if isinstance(self.response_part, tuple):
+                        self.msg = email.message_from_string(self.response_part[1].decode('utf-8'))
+                        self.current_email_subject = 'Subject : ' + self.msg['subject']
+                        self.current_email_from = 'From : ' + self.msg['from']
+                        # print ('From : ' + email_from + '\n')
+                        #print (self.previous_email_subject)
+                        self.current_email = self.current_email_from + "\n" + \
+                                             self.current_email_subject + "\n"
+                        self.previous_email = self.previous_email  + self.current_email
+                        
+                        self.previous_email_from = self.previous_email_from + " " + self.current_email_from + "\n" 
+                        #self.previous_email_subject = self.previous_email_subject + " " + self.current_email_subject + "\n"
+
+                        
+            
+            self.emailLoader_finished.emit(self.previous_email_from)
             print("[INFO - EMAIL_BACKEND ] : FINISH SIGNAL FROM EMAIL BACKEND SENT")
         
         except OSError as e:
@@ -84,10 +104,10 @@ class emailWidget(QWidget):
         self.emailBox=QGroupBox("EMAIL SECTION")
         self.title = QLabel("LOADING")
         self.mainContent = QLabel("LOADING")
-        self.opt_1 = QLabel("CLOSE LEFT EYES FOR 5 SEC TO OPEN EMAILS")
+        self.opt_1 = QLabel("SMILE FOR 5 SEC TO OPEN EMAILS")
         self.opt_2 = QLabel("CLOSE BOTH EYES FOR 5 SEC TO BACK")
         self.opt_debug = QLabel("STATUS : LOADING")
-        
+        self.opt_debug.setWordWrap(True)
 
         self.title.setStyleSheet("color: white")
         self.title.setAlignment(Qt.AlignCenter)
@@ -107,10 +127,10 @@ class emailWidget(QWidget):
         
         self.verticalLayout.addWidget(self.title)
         self.verticalLayout.addWidget(self.mainContent)
-
+        self.verticalLayout_Option.addWidget(self.opt_debug)
         self.verticalLayout_Option.addWidget(self.opt_1)
         self.verticalLayout_Option.addWidget(self.opt_2)
-        self.verticalLayout_Option.addWidget(self.opt_debug)
+        
 
         self.verticalLayout.addStretch(1)
         self.verticalLayout_Option.addStretch(1)
@@ -131,22 +151,16 @@ class emailWidget(QWidget):
         self.emailWorker.emailLoader_finished.connect(self._finished)
         self.emailWorker.moveToThread(self.emailthread)
         self.emailthread.started.connect(self.emailWorker.emailExtractor)
-        #self.emailthread.start()
 
-        
-        
         QApplication.processEvents()
         self.setLayout(grid)
         self.setWindowTitle("EMAIL MODULE")
-
-        #set window background color
-        
+  
         self.setAutoFillBackground(True)
         p = self.palette()
         p.setColor(self.backgroundRole(), Qt.black)
         self.setPalette(p)
-        self.resize(400,300)
-        #self.
+        self.resize(600,300)
 
     def startEmailBackend(self):
         self.show()
@@ -161,13 +175,13 @@ class emailWidget(QWidget):
         self.mainContent.setText(" YOU HAVE " + str(notificationNo) + " MAILS")
 
     
-    def _finished(self):
+    def _finished(self,value):
         print("[EMAIL WIDGET GUI STATUS] : FINISHED SIGNAL IS RECEIVED FROM EMAIL BACKEND")
         self.emailthread.quit()
         self.emailthread.wait()
 
         self.finished_status = True
-        self.opt_debug.setText(str(self.finished_status))
+        self.opt_debug.setText(value)
         self.done_Signal.emit()
 
     def email_status(self):
@@ -181,5 +195,6 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     analysisWin = emailWidget()
     analysisWin.setVisible(0)
+    analysisWin.startEmailBackend()
     #analysisWin.showFullScreen()
     sys.exit(app.exec_())

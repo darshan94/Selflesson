@@ -7,6 +7,7 @@ from dateV2 import DateWidget
 from weatherV2 import WeatherWindow
 from emailV2 import emailWidget
 from navigationV2 import Navigation
+from Face_Recognition import FACE_RECOGNITION_GUI
 
 from picamera.array import PiRGBArray
 from picamera import PiCamera
@@ -24,49 +25,51 @@ import cv2
 import time
 import sys
 
-class TestSignal(QObject):
-
-    progress_signal = pyqtSignal(int)
-    finished =pyqtSignal()
-
-    def __init__(self, parent=None):
-        super(TestSignal,self).__init__(parent)
-        self.num =0
-    
-    def progress(self):
-        for i in range(10):
-            i+=self.num
-            self.progress_signzl.emit(i)
-            time.sleep(1)
-        self.finished.emit()
-
-    def setterNum(self,nuu):
-        self.num = nuu
-
-
-class selectionWidget(QMainWindow): # FUCK NO ANY MODULE WIDGET DECLARED HERE !
+class selectionWidget(QMainWindow): 
 
     start_Email_Signal = pyqtSignal()
-    self.start_Weather_Signal = 
+    start_Weather_Signal = pyqtSignal()
 
-    self.NEXT_PAGE_EMAIL = 
-    self.NEXT_PAGE_WEATHER =
+    NEXT_PAGE_EMAIL = pyqtSignal()
+    NEXT_PAGE_WEATHER = pyqtSignal()
 
-    self.PREV_PAGE_EMAIL = 
-    self.PREV_PAGE_WEATHER =  
+    PREV_PAGE_EMAIL = pyqtSignal()
+    PREV_PAGE_WEATHER = pyqtSignal()  
     
     
     def __init__(self, parent=None):
         super(selectionWidget,self).__init__(parent)
 
+        self.FACE_AUTHENICATION = FACE_RECOGNITION_GUI(self)
+        self.FACE_AUTHENICATION.face_Recognized.connect(self.FACERECOGNIZED)
+
+        self.SECURITY_THREAD = QThread()
+        self.FACE_AUTHENICATION.moveToThread(self.SECURITY_THREAD)
+        self.SECURITY_THREAD.started.connect(self.FACE_AUTHENICATION.START_RECOGNIZATION)
+        self.SECURITY_THREAD.start()
+        self.FACE_AUTHENICATION.showFullScreen()
+
         self.currentWindow = 'None'
-        
+
+        self.timeWidg = TimeWidget(self)
+        self.timeWidg.move(600,150)
+        self.timeWidg.hide()
+        self.timeWidg.setStyleSheet(".QLabel{ color:white ; background-color:black ; font-size:60px }")
+
+
+        self.dateWidg = DateWidget(self)
+        self.dateWidg.move(250,5)
+        self.dateWidg.hide()
+        self.dateWidg.setStyleSheet(".QLabel{ color:white ; background-color:black ; font-size:60px }")
+
         self.navObj = Navigation()
         self.navThread = QThread()
 
         self.emailStack = emailWidget(self)
         self.emailStack.move(100,800)
+        self.emailStack.hide()
         self.weatherStack = WeatherWindow(self)
+        self.weatherStack.hide()
         self.weatherStack.move(100,800)
 
         self.navObj.Pattern_progress.connect(self.moduleSelection)
@@ -81,14 +84,22 @@ class selectionWidget(QMainWindow): # FUCK NO ANY MODULE WIDGET DECLARED HERE !
         self.weatherStack.done_Signal.connect(self.Finished_signalReceiverFromWidgets)
 
         self.setNaviMode("SubWin")
-        self.startMainNav()                        
+
+
+        self.setStyleSheet("QMainWindow{ background-color : black}")
+        
+
+    def FACERECOGNIZED(self):
+        self.timeWidg.show()
+        self.dateWidg.show()
+        self.startMainNav()
         
     def CLOSE_ACTIVE_WINDOW(self):
         if self.currentWindow == 'EMAIL':
-            self.emailStack.close()
+            self.emailStack.hide()
 
         elif self.currentWindow == 'WEATHER':
-            self.weatherStack.close()
+            self.weatherStack.hide()
 
         else:
             print("[SELECTION WINDOW STATUS] : NO WINDOW ACTIVE")
@@ -117,10 +128,7 @@ class selectionWidget(QMainWindow): # FUCK NO ANY MODULE WIDGET DECLARED HERE !
     
     def patternSelection(self,patternType):
         print("[SELECTION WINDOW STATUS] : PATTERN SIGNAL FROM NAVIGATION CLASS RECEIVED")
-        if patternType == 'PATTERN_11':
-            print("[SELECTION WINDOW STATUS] : EMAIL WIDGET IS CHOSEN")
-            
-
+        
         if patternType == 'PATTERN_1':
             print("[SELECTION WINDOW STATUS] : ACTIVE DEBUG WINDOW")
 
@@ -130,14 +138,16 @@ class selectionWidget(QMainWindow): # FUCK NO ANY MODULE WIDGET DECLARED HERE !
         elif patternType == 'PATTERN_3':
             print("[SELECTION WINDOW STATUS] : NO MODULE IS ASSIGNED FOR THIS")
 
-        elif patternType == 'PATTERN_4':
+        elif patternType == 'BOTH_OPEN':
             print("[SELECTION WINDOW STATUS] : ACTIVE EMAIL MODULE")
             self.currentWindow = 'EMAIL'
+            self.emailStack.show()
             self.start_Email_Signal.emit()
 
         elif patternType == 'PATTERN_5':
             print("[SELECTION WINDOW STATUS] : ACTIVE WEATHER INFO")
             self.currentWindow = 'WEATHER'
+            self.weatherStack.show()
             self.start_Weather_Signal.emit()
 
         elif patternType == 'PATTERN_6':
@@ -170,7 +180,7 @@ class selectionWidget(QMainWindow): # FUCK NO ANY MODULE WIDGET DECLARED HERE !
         time.sleep(3)
 
         if self.currentWindow != 'MAINWIN':
-            self.setNaviMode('SubWin'):
+            self.setNaviMode('SubWin')
         else:
             self.setNaviMode('MainWin') 
             

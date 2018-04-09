@@ -131,7 +131,7 @@ class Navigation(QObject):
         self.MOUTH_AR_THRESH_CLOSED = 0.10
         self.MOUTH_AR_THRESH_OPENED = 0.20
         self.MOUTH_AR_CONSEC_FRAME = 5
-        self.EYE_AR_THRESH=0.3
+        self.EYE_AR_THRESH=0.23
         self.EYE_AR_CONSEC_FRAMES = 3
 
         self.LEFT_CLOSE_COUNTER  = 0 

@@ -148,8 +148,13 @@ class FACE_AUTHENICATION(QObject):
         self.finished.emit()  
 
 class FACE_RECOGNITION_GUI(QWidget):
+
+    face_Recognized = pyqtSignal()
     
     def __init__(self, parent=None):
+
+        print("[FACE RECOGNITION WIDGET STATUS] : FACE_RECOGNITION_GUI CONSTRUCTOR CALLED")
+        
         super(FACE_RECOGNITION_GUI,self).__init__(parent)
 
         self.USER_RECOGNIZED = False
@@ -159,45 +164,49 @@ class FACE_RECOGNITION_GUI(QWidget):
         self.AUTHENICATION_STATUS = QLabel("STATUS : ")
         self.AUTHENICATION_STATUS.setAlignment(Qt.AlignCenter)
         grid.addWidget(self.AUTHENICATION_STATUS,0,0)
+
+
+        self.FACE_AUTHENICATION_OBJ = FACE_AUTHENICATION()
+        self.FACE_RECOG_THREAD = QThread()
+
+        self.FACE_AUTHENICATION_OBJ.user_Recognized.connect(self.userRecognized)
+        self.FACE_AUTHENICATION_OBJ.user_Not_Recognized.connect(self.userNotRecognized)
+        self.FACE_AUTHENICATION_OBJ.process_Status.connect(self.updateStatusData)
+        self.FACE_AUTHENICATION_OBJ.finished.connect(self._FINISHED)
+
+        self.FACE_AUTHENICATION_OBJ.moveToThread(self.FACE_RECOG_THREAD)
+        self.FACE_RECOG_THREAD.started.connect(self.FACE_AUTHENICATION_OBJ._FACE_RECOGNITION)
         
-        self.backend_work = FACE_AUTHENICATION()
-        self.thread_A = QThread()
-        
-        self.backend_work.user_Recognized.connect(self.userRecognized)
-        self.backend_work.user_Not_Recognized.connect(self.userNotRecognized)
-        #self.backend_work.no_face_detected.connect(self.updateDate)
-        #self.backend_work.face_detected.connect(self.updateDate)
-        self.backend_work.process_Status.connect(self.updateStatusData)
-        self.backend_work.finished.connect(self._FINISHED)
 
         
-        self.backend_work.moveToThread(self.thread_A)
-        
-        self.thread_A.started.connect(self.backend_work._FACE_RECOGNITION)
-        self.thread_A.start()
-        
         QApplication.processEvents()
+
+        self.setStyleSheet( """QLabel{ color : white ; font-size : 40px ; font-weight : bold }  QWidget{ background-color : black}""")
+
+        
         self.setLayout(grid)
-        self.setWindowTitle("FACE RECOGNITION")
-        self.resize(400,300)
+        self.resize(900,300)
+        
+
+    def START_RECOGNIZATION(self):
+        self.FACE_RECOG_THREAD.start()
 
     def updateStatusData(self,value):
         self.AUTHENICATION_STATUS.setText("STATUS : "+ value)
 
     def _FINISHED(self):
         print("[INFO-FACE-RECOGNITION-GUI] : FINISH SIGNAL RECEIVED")
-        self.thread_A.quit()
-        self.thread_A.wait()
+        self.FACE_RECOG_THREAD.quit()
+        self.FACE_RECOG_THREAD.wait()
         if self.USER_RECOGNIZED == False:
             time.sleep(2)
             self.AUTHENICATION_STATUS.setText("STATUS : RECOGNIZATION STARTED AGAIN")
             time.sleep(1)                                  
-            self.thread_A.start()
+            self.START_RECOGNIZATION()
 
         else:
-            self.hide()
-            time.sleep(10)
-            self.show()                                              
+            self.face_Recognized.emit()
+            self.close()                                             
           
     def userNotRecognized(self):
         print("[INFO-FACE-RECOGNITION-GUI] : USER_NOT_RECOGNIZED SIGNAL RECEIVED")
@@ -207,13 +216,20 @@ class FACE_RECOGNITION_GUI(QWidget):
         print("[INFO-FACE-RECOGNITION-GUI] : USER_RECOGNIZED SIGNAL RECEIVED")
         self.USER_RECOGNIZED = True
 
+    def get_USER_STATE(self):
+        return self.USER_RECOGNIZED
+
 if __name__ == "__main__":
    
     import sys
     app = QApplication(sys.argv)
-    analysisWin = FACE_RECOGNITION_GUI()
-    analysisWin.show()
-    #analysisWin.showFullScreen()
+
+    FACE_RECOGNITION_GUI_OBJ = FACE_RECOGNITION_GUI()
+
+    FACE_RECOGNITION_GUI_OBJ
+
+
+    
     sys.exit(app.exec_())
 
 

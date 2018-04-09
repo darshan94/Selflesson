@@ -6,6 +6,8 @@ import pyowm
 
 
 class WeatherWindow(QWidget):
+    done_Signal = pyqtSignal()
+    
     def __init__(self, parent=None):
         super(WeatherWindow,self).__init__(parent)
 
@@ -13,9 +15,9 @@ class WeatherWindow(QWidget):
         grid = QGridLayout()
         
         self.label = QLabel("Weather")
-        self.wStatus = QLabel("FALSE")
+        self.temp = QLabel("FALSE")
         grid.addWidget(self.label,0,0)
-        grid.addWidget(self.wStatus,0,1)
+        grid.addWidget(self.temp,0,1)
         
         self.weatherObj = WeatherWorker()
         self.weatherThread = QThread()
@@ -34,7 +36,9 @@ class WeatherWindow(QWidget):
 
     def updateTemp(self, temp):
         print("DEBUGGER POINT 2: SIGNAL RECEIVED")
-        self.label.setText("Penang,Malaysia temperature:" + str(temp['temp']) + " \u00B0C")
+        self.temp.setText("Penang,Malaysia Temperature : " + str(temp['temp']) + " \u00B0C")
+
+    
         
     def _weatherFinished(self):
         print("FINISHED.START AGAIN")
@@ -47,6 +51,10 @@ class WeatherWindow(QWidget):
     
 class WeatherWorker(QObject):
     tempSignal = pyqtSignal(dict)
+    windSignal = pyqtSignal(dict)
+    humiditySignal = pyqtSignal(dict)
+    statusSignal = pyqtSignal(dict)
+
     weather_data_finished = pyqtSignal()
     
     def __init__(self, parent=None):
@@ -59,9 +67,22 @@ class WeatherWorker(QObject):
         print("DEBUGGER POINT 2: SIGNAL PROCESSING")
         w = observation.get_weather()
         ctemp = w.get_temperature('celsius')
+        print("DEBUGGER POINT 3: SIGNAL PROCESSING")
+        chum = w.get_humidity()
+        print("DEBUGGER POINT 4: SIGNAL PROCESSING")
+        #cwind = w.get_wind("speed")
+        print("DEBUGGER POINT 5: SIGNAL PROCESSING")
+        cweather_Status = w.get_status()
+        print("DEBUGGER POINT 6: SIGNAL PROCESSING")
         self.tempSignal.emit(ctemp)
-        
+        print("DEBUGGER POINT 7: SIGNAL PROCESSING")
+        #self.windSignal.emit(cwind)
+        #self.humiditySignal.emit(chum)
+        print("DEBUGGER POINT 8: SIGNAL PROCESSING")
+        #self.statusSignal.emit(cweather_Status)
+        print("DEBUGGER POINT 9: SIGNAL PROCESSING")
         self.weather_data_finished.emit()
+        print("DEBUGGER POINT 10: SIGNAL PROCESSING")
 
 
 
@@ -71,4 +92,19 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     w = WeatherWindow()
     w.show()
+    w.startWeatherBackend()
     sys.exit(app.exec_())
+
+
+'''def updateWind(self, temp):
+        print("DEBUGGER POINT 2: SIGNAL RECEIVED")
+        self.wind.setText("Penang,Malaysia Wind : " + str(temp['temp']) + " \u00B0C")
+        
+    def updateHumidity(self, temp):
+        print("DEBUGGER POINT 2: SIGNAL RECEIVED")
+        self.humidity.setText("Penang,Malaysia Humidity : " + str(temp['temp']) + " \u00B0C")
+        
+    def updateStatus(self, temp):
+        print("DEBUGGER POINT 2: SIGNAL RECEIVED")
+        self.status.setText("Penang,Malaysia temperature : " + value)
+        '''
