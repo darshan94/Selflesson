@@ -29,6 +29,7 @@ class selectionWidget(QMainWindow):
 
     start_Email_Signal = pyqtSignal()
     start_Weather_Signal = pyqtSignal()
+    start_News_Signal = pyqtSignal()
 
     NEXT_PAGE_EMAIL = pyqtSignal()
     NEXT_PAGE_WEATHER = pyqtSignal()
@@ -40,6 +41,8 @@ class selectionWidget(QMainWindow):
     def __init__(self, parent=None):
         super(selectionWidget,self).__init__(parent)
 
+        self.USER = QLabel()
+        
         self.FACE_AUTHENICATION = FACE_RECOGNITION_GUI(self)
         self.FACE_AUTHENICATION.face_Recognized.connect(self.FACERECOGNIZED)
 
@@ -89,9 +92,11 @@ class selectionWidget(QMainWindow):
         self.setStyleSheet("QMainWindow{ background-color : black}")
         
 
-    def FACERECOGNIZED(self):
+    def FACERECOGNIZED(self,_name):
         self.timeWidg.show()
         self.dateWidg.show()
+        self.USER.setText("Hi \n" +_name)
+        self.USER.move(150,150)
         self.startMainNav()
         
     def CLOSE_ACTIVE_WINDOW(self):

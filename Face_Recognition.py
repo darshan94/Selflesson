@@ -6,6 +6,7 @@
 from PyQt5.QtCore import QDate, QTime, QDateTime, Qt,QTimer, pyqtSlot, pyqtSignal, QObject, QThread
 from PyQt5.QtWidgets import QGridLayout,QDockWidget,QApplication,QWidget,QLabel, QVBoxLayout, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout
 
+import CONFIGURATION as CONF
 
 from picamera.array import PiRGBArray
 from picamera import PiCamera
@@ -16,7 +17,7 @@ import cv2
 
 
 class FACE_AUTHENICATION(QObject):
-    user_Recognized = pyqtSignal()
+    user_Recognized = pyqtSignal(str)
     user_Not_Recognized = pyqtSignal()
     no_face_detected = pyqtSignal()
     face_detected = pyqtSignal()
@@ -29,7 +30,8 @@ class FACE_AUTHENICATION(QObject):
         print("[INFO_FACERECOGNITION] : FACE RECOGNITION CONSTRUCTOR CALLED")
 
         self.HAAR_FACES = 'haarcascade_frontalface.xml'
-        self.TRAINING_FILE = 'training.xml'
+        self.TRAINING_FILE = CONF.USER_TRAINED_XML
+        self.USERNAME = CONF.USER_NAME
         self.haar_faces = cv2.CascadeClassifier(self.HAAR_FACES)
         self.HAAR_SCALE_FACTOR = 1.3
         self.HAAR_MIN_NEIGHBORS = 4
@@ -124,9 +126,9 @@ class FACE_AUTHENICATION(QObject):
                 # A user only gets logged in if he is predicted twice in a row minimizing prediction errors.
                 if  (self.same_user_detected_in_row > 5):
                     print("[STATUS] : USER LOG IN ")
-                    self.STATUS = 'USER LOG IN'
-                    self.user_Recognized.emit()
-                    self.process_Status.emit(self.STATUS)
+                    self.STATUS = ' LOG IN'
+                    self.user_Recognized.emit(self.USERNAME)
+                    self.process_Status.emit(self.USERNAME + self.STATUS)
                     break
                 # set last_match to current prediction
                 self.last_match = self.label
@@ -158,7 +160,7 @@ class FACE_RECOGNITION_GUI(QWidget):
         super(FACE_RECOGNITION_GUI,self).__init__(parent)
 
         self.USER_RECOGNIZED = False
-        
+        self.USERID = " "
         grid = QGridLayout()
         
         self.AUTHENICATION_STATUS = QLabel("STATUS : ")
@@ -192,7 +194,7 @@ class FACE_RECOGNITION_GUI(QWidget):
         self.FACE_RECOG_THREAD.start()
 
     def updateStatusData(self,value):
-        self.AUTHENICATION_STATUS.setText("STATUS : "+ value)
+        self.AUTHENICATION_STATUS.setText("STATUS \n"+ value)
 
     def _FINISHED(self):
         print("[INFO-FACE-RECOGNITION-GUI] : FINISH SIGNAL RECEIVED")
@@ -200,20 +202,22 @@ class FACE_RECOGNITION_GUI(QWidget):
         self.FACE_RECOG_THREAD.wait()
         if self.USER_RECOGNIZED == False:
             time.sleep(2)
-            self.AUTHENICATION_STATUS.setText("STATUS : RECOGNIZATION STARTED AGAIN")
+            self.AUTHENICATION_STATUS.setText("STATUS \n RECOGNIZATION STARTED AGAIN ")
             time.sleep(1)                                  
             self.START_RECOGNIZATION()
 
         else:
-            self.face_Recognized.emit()
+            self.face_Recognized.emit(self.USERID)
+            time.sleep(3) 
             self.close()                                             
           
     def userNotRecognized(self):
         print("[INFO-FACE-RECOGNITION-GUI] : USER_NOT_RECOGNIZED SIGNAL RECEIVED")
         self.USER_RECOGNIZED = False
 
-    def userRecognized(self):
+    def userRecognized(self,value):
         print("[INFO-FACE-RECOGNITION-GUI] : USER_RECOGNIZED SIGNAL RECEIVED")
+        self.USERID = value
         self.USER_RECOGNIZED = True
 
     def get_USER_STATE(self):
@@ -226,9 +230,9 @@ if __name__ == "__main__":
 
     FACE_RECOGNITION_GUI_OBJ = FACE_RECOGNITION_GUI()
 
-    FACE_RECOGNITION_GUI_OBJ
+    FACE_RECOGNITION_GUI_OBJ.START_RECOGNIZATION()
 
-
+    FACE_RECOGNITION_GUI_OBJ.show()
     
     sys.exit(app.exec_())
 

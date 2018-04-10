@@ -1,6 +1,6 @@
 from PyQt5.QtCore import QDate, QTime, QDateTime, Qt,QTimer, pyqtSlot, pyqtSignal, QObject, QThread
 from PyQt5.QtWidgets import QGridLayout,QDockWidget,QApplication,QWidget,QLabel, QVBoxLayout, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout
-
+from PyQt5.QtGui import QImage, QPixmap
 from picamera.array import PiRGBArray
 from picamera import PiCamera
 from threading import Thread
@@ -29,6 +29,9 @@ class Navigation(QObject):
     RightEye_Close_progress = pyqtSignal(int)
     RightEye_State_progress = pyqtSignal(str)
     Pattern_progress = pyqtSignal(str)
+
+    video_Signal = pyqtSignal(QImage)
+    
     finished = pyqtSignal(str)
 
     def __init__(self):
@@ -120,11 +123,24 @@ class Navigation(QObject):
         elif left_Eye_state == 'CLOSE' and right_Eye_state == 'OPEN':
             eyePattern = 'PATTERN_9'
         elif left_Eye_state == 'OPEN' and right_Eye_state == 'OPEN':
-            eyePattern = 'BOTH_OPEN'
+            eyePattern = 'PATTERN_12'
         else:
             eyePattern = 'VALUE_ERROR'
         print("[INFO-NAVIGATION FUNCTION CLASS]  : "+eyePattern)
-        return eyePattern 
+        return eyePattern
+
+    def MOUTH_PATTERN(self,_mouth_state):
+
+        print("[INFO-NAVIGATION FUNCTION CLASS]  : MOUTH_PATTERN(self,_mouth_state) called.")
+        
+        if _mouth_state == 'OPEN':
+            mouthpattern = 'PATTERN_14'
+        elif _mouth_state == 'CLOSE':
+            mouthpattern = 'PATTERN_13'
+        else:
+            mouthpattern = 'VALUE_ERROR'
+        print("[INFO-NAVIGATION FUNCTION CLASS]  : "+mouthpattern)
+        return mouthpattern
 
     def resetter(self):
         print("DEFAULT VALUE IS RESTORED")
@@ -152,7 +168,7 @@ class Navigation(QObject):
 
         self.patternSender = 'NONE'
         self.Pbreak = False
-        
+       
 
     def setWindowType(self,windowType):
         self.winType = windowType
@@ -204,7 +220,20 @@ class Navigation(QObject):
                 print("[STATUS] : LEAR VALUE IS OBTAINED")
                 self.rightEAR=self.eye_aspect_ratio(self.rightEye)
                 print("[STATUS] : REAR VALUE IS OBTAINED")
-
+#_____QIMAGE____________________________________________________________________________________________________
+                for (x,y) in self.shape:
+                    cv2.circle(self.image, (x,y), 1,(0, 0, 255), -1)
+                print("[STATUS] : CIRCLE LANDMARK DRAWN")
+                self.leftEyeHull=cv2.convexHull(self.leftEye)
+                self.rightEyeHull=cv2.convexHull(self.rightEye)
+                self.mouthEyeHull=cv2.convexHull(self.mouthPoint)
+                cv2.drawContours(self.image,[self.leftEyeHull], -1, (0, 255, 0), 1)
+                cv2.drawContours(self.image,[self.rightEyeHull], -1, (0, 255, 0), 1)
+                cv2.drawContours(self.image,[self.mouthEyeHull], -1, (0, 255, 0), 1)
+                print("[STATUS] : CONTOUR DRAWN")
+                qimage = QImage(self.image.data,640,480,QImage.Format_RGB888)
+                print("[STATUS] : QIMAGE CREATED")
+                self.video_Signal.emit(qimage)
 #_____STAGE_1___________________________________________________________________________________________________
 
 
@@ -236,32 +265,33 @@ class Navigation(QObject):
                     print("[STATUS] : LEFT EYE CLOSE FOR THIS FRAME")
                     self.LEFT_CLOSE_COUNTER+=1
                     self.LEFT_OPEN_COUNTER = 0
-                    self.LeftEye_Open_progress.emit(self.LEFT_OPEN_COUNTER)
-                    self.LeftEye_Close_progress.emit(self.LEFT_CLOSE_COUNTER)
+                    #self.LeftEye_Open_progress.emit(self.LEFT_OPEN_COUNTER)
+                    #self.LeftEye_Close_progress.emit(self.LEFT_CLOSE_COUNTER)
                 else:
                     print("[STATUS] : LEFT EYE OPEN FOR THIS FRAME")
                     self.LEFT_OPEN_COUNTER+=1
                     self.LEFT_CLOSE_COUNTER = 0
-                    self.LeftEye_Open_progress.emit(self.LEFT_OPEN_COUNTER)
-                    self.LeftEye_Close_progress.emit(self.LEFT_CLOSE_COUNTER)
+                    #self.LeftEye_Open_progress.emit(self.LEFT_OPEN_COUNTER)
+                    #self.LeftEye_Close_progress.emit(self.LEFT_CLOSE_COUNTER)
 
                 if self.rightEAR<self.EYE_AR_THRESH:
                     print("[STATUS] : RIGHT EYE CLOSE FOR THIS FRAME")
                     self.RIGHT_CLOSE_COUNTER+=1
                     self.RIGHT_OPEN_COUNTER = 0
-                    self.RightEye_Open_progress.emit(self.RIGHT_OPEN_COUNTER)
-                    self.RightEye_Close_progress.emit(self.RIGHT_CLOSE_COUNTER)
+                    #self.RightEye_Open_progress.emit(self.RIGHT_OPEN_COUNTER)
+                    #self.RightEye_Close_progress.emit(self.RIGHT_CLOSE_COUNTER)
 
                 else:
                     print("[STATUS] : RIGHT EYE OPEN FOR THIS FRAME")
                     self.RIGHT_OPEN_COUNTER += 1
                     self.RIGHT_CLOSE_COUNTER = 0
-                    self.RightEye_Open_progress.emit(self.RIGHT_OPEN_COUNTER)
-                    self.RightEye_Close_progress.emit(self.RIGHT_CLOSE_COUNTER)
+                    #self.RightEye_Open_progress.emit(self.RIGHT_OPEN_COUNTER)
+                    #self.RightEye_Close_progress.emit(self.RIGHT_CLOSE_COUNTER)
 
 #_____STAGE_2___________________________________________________________________________________________________
 
                 print("[STATUS] : STAGE 2")
+
                 
                 if self.LEFT_CLOSE_COUNTER >=self.EYE_AR_CONSEC_FRAMES:
                     print("[STATUS] : LEFT EYE CLOSE VALIDATED")
@@ -270,7 +300,7 @@ class Navigation(QObject):
                     self.LEFT_EYE_CLOSE_TOTAL = 0
                     self.LEFT_CLOSE_COUNTER = 0
                     self.LEFT_OPEN_COUNTER = 0
-                    self.LeftEye_State_progress.emit(self.CURRENT_LEFT_EYE_STATE)
+                    #self.LeftEye_State_progress.emit(self.CURRENT_LEFT_EYE_STATE)
                     
                 else:
                     if self.LEFT_OPEN_COUNTER >=self.EYE_AR_CONSEC_FRAMES:
@@ -280,12 +310,12 @@ class Navigation(QObject):
                         self.LEFT_EYE_OPEN_TOTAL = 0
                         self.LEFT_OPEN_COUNTER = 0
                         self.LEFT_CLOSE_TOTAL = 0
-                        self.LeftEye_State_progress.emit(self.CURRENT_LEFT_EYE_STATE)
+                        #self.LeftEye_State_progress.emit(self.CURRENT_LEFT_EYE_STATE)
 
                     else:
                         print("[STATUS] : LEFT EYE NOT DEFINED")
                         self.CURRENT_LEFT_EYE_STATE = "NOT DEFINED"
-                        self.LeftEye_State_progress.emit(self.CURRENT_LEFT_EYE_STATE)
+                        #self.LeftEye_State_progress.emit(self.CURRENT_LEFT_EYE_STATE)
 
                 if self.RIGHT_CLOSE_COUNTER >=self.EYE_AR_CONSEC_FRAMES:
                     print("[STATUS] : RIGHT EYE CLOSE VALIDATED")
@@ -294,7 +324,7 @@ class Navigation(QObject):
                     self.RIGHT_EYE_CLOSE_TOTAL = 0
                     self.RIGHT_CLOSE_COUNTER = 0
                     self.RIGHT_OPEN_COUNTER = 0
-                    self.RightEye_State_progress.emit(self.CURRENT_RIGHT_EYE_STATE)
+                    #self.RightEye_State_progress.emit(self.CURRENT_RIGHT_EYE_STATE)
                     
                 else:
                     if self.RIGHT_OPEN_COUNTER >=self.EYE_AR_CONSEC_FRAMES:
@@ -304,12 +334,12 @@ class Navigation(QObject):
                         self.RIGHT_EYE_OPEN_TOTAL = 0
                         self.RIGHT_OPEN_COUNTER = 0
                         self.RIGHT_CLOSE_COUNTER = 0
-                        self.RightEye_State_progress.emit(self.CURRENT_RIGHT_EYE_STATE)
+                        #self.RightEye_State_progress.emit(self.CURRENT_RIGHT_EYE_STATE)
 
                     else:
                         print("[STATUS] : RIGHT EYE NOT DEFINED")
                         self.CURRENT_RIGHT_EYE_STATE = "NOT DEFINED"
-                        self.RightEye_State_progress.emit(self.CURRENT_RIGHT_EYE_STATE)
+                        #self.RightEye_State_progress.emit(self.CURRENT_RIGHT_EYE_STATE)
                         print("[STATUS] : RIGHT EYE NOT DEFINED SIGNAL SENT")
                 
                 if self.open_Counter >= self.MOUTH_AR_CONSEC_FRAME :     
@@ -380,6 +410,9 @@ class DebugWindow(QWidget):
     
     def __init__(self, parent=None):
         super(DebugWindow,self).__init__(parent)
+
+        self.live = QLabel("IMAGE")
+        #pixmap = QPixmap()
         
         grid = QGridLayout()
 
@@ -387,24 +420,34 @@ class DebugWindow(QWidget):
         self.mouth_Open_Counter = QLabel("NO. MOUTH OPEN : ")
         self.mouth_Closed_Counter = QLabel("NO. MOUTH CLOSE : ")
         self.mouth_condition = QLabel("MOUTH CONDITION : ")
-        self.leftEyeOpen = QLabel("LEFT EYE OPEN COUNTER : ")
-        self.leftEyeClose = QLabel("LEFT EYE CLOSE COUNTER: ")
-        self.rightEyeOpen = QLabel("RIGHT EYE OPEN COUNTER : ")
-        self.rightEyeClose = QLabel("RIGHT EYE CLOSE COUNTER: ")
-        self.leftEyeCondition= QLabel("LEFT EYE CONDITION: ")
-        self.rightEyeCondition = QLabel("RIGHT EYE CONDITION: ")
+        self.eyes_Open_Counter = QLabel("NO. EYES OPEN : ")
+        self.eyes_Closed_Counter = QLabel("NO. EYES CLOSE : ")
+        self.eyes_condition = QLabel("EYES CONDITION : ")
+        #self.leftEyeOpen = QLabel("LEFT EYE OPEN COUNTER : ")
+        #self.leftEyeClose = QLabel("LEFT EYE CLOSE COUNTER: ")
+        #self.rightEyeOpen = QLabel("RIGHT EYE OPEN COUNTER : ")
+        #self.rightEyeClose = QLabel("RIGHT EYE CLOSE COUNTER: ")
+        #self.leftEyeCondition= QLabel("LEFT EYE CONDITION: ")
+        #self.rightEyeCondition = QLabel("RIGHT EYE CONDITION: ")
+
+        
         
         self.activateWindow = QLabel("ACTIVATED FRAME : ")    
         
         self.mouth_Open_Counter_Value = QLabel("#")
         self.mouth_Closed_Counter_Value = QLabel("#")
         self.mouth_condition_Value = QLabel("#")
-        self.leftEyeOpenValue = QLabel("#")
-        self.leftEyeCloseValue = QLabel("#")
-        self.rightEyeOpenValue = QLabel("#")
-        self.rightEyeCloseValue = QLabel("#")
-        self.leftEyeConditionValue= QLabel("#")
-        self.rightEyeConditionValue = QLabel("#")
+        self.eyes_Open_Counter_Value = QLabel("#")
+        self.eyes_Closed_Counter_Value = QLabel("#")
+        self.eyes_condition_Value = QLabel("#")
+
+        
+        #self.leftEyeOpenValue = QLabel("#")
+        #self.leftEyeCloseValue = QLabel("#")
+        #self.rightEyeOpenValue = QLabel("#")
+        #self.rightEyeCloseValue = QLabel("#")
+        #self.leftEyeConditionValue= QLabel("#")
+       # self.rightEyeConditionValue = QLabel("#")
         
         self.activateWindowValue = QLabel("MAIN")
         
@@ -416,13 +459,15 @@ class DebugWindow(QWidget):
         self.work.Mouth_Open_progress.connect(self.updateDataMO)
         self.work.Mouth_Close_progress.connect(self.updateDataMC)
         self.work.Mouth_State_progress.connect(self.updateDataMS)
-        self.work.LeftEye_Open_progress.connect(self.updateDataLEO)
-        self.work.LeftEye_Close_progress.connect(self.updateDataLEC)
-        self.work.LeftEye_State_progress.connect(self.updateDataLES)
-        self.work.RightEye_Open_progress.connect(self.updateDataREO)
-        self.work.RightEye_Close_progress.connect(self.updateDataREC)
-        self.work.RightEye_State_progress.connect(self.updateDataRES)
+        #self.work.LeftEye_Open_progress.connect(self.updateDataLEO)
+        #self.work.LeftEye_Close_progress.connect(self.updateDataLEC)
+        #self.work.LeftEye_State_progress.connect(self.updateDataLES)
+        #self.work.RightEye_Open_progress.connect(self.updateDataREO)
+        #self.work.RightEye_Close_progress.connect(self.updateDataREC)
+        #self.work.RightEye_State_progress.connect(self.updateDataRES)
         self.work.Pattern_progress.connect(self.updateDataWIN)
+
+        self.work.video_Signal.connect(self.image_data_slot)
        
         self.work.moveToThread(self.thread)
         self.work.finished.connect(self._finished)
@@ -442,7 +487,7 @@ class DebugWindow(QWidget):
         horizontalLayout7 = QHBoxLayout()
         horizontalLayout8 = QHBoxLayout()
         horizontalLayout9 = QHBoxLayout()
-
+        horizontalLayout10 = QHBoxLayout()
         horizontalLayout.addWidget(self.mouth_Open_Counter)
         horizontalLayout.addWidget(self.mouth_Open_Counter_Value)
         horizontalLayout1.addWidget(self.mouth_Closed_Counter)
@@ -461,8 +506,9 @@ class DebugWindow(QWidget):
         horizontalLayout7.addWidget(self.leftEyeConditionValue)
         horizontalLayout8.addWidget(self.rightEyeCondition)
         horizontalLayout8.addWidget(self.rightEyeConditionValue)
-        horizontalLayout3.addWidget(self.activateWindow)
-        horizontalLayout3.addWidget(self.activateWindowValue)
+        horizontalLayout9.addWidget(self.activateWindow)
+        horizontalLayout9.addWidget(self.activateWindowValue)
+        horizontalLayout10.addWidget(self.live)
         
         verticalLayout.addLayout(horizontalLayout)
         verticalLayout.addLayout(horizontalLayout1)
@@ -474,6 +520,7 @@ class DebugWindow(QWidget):
         verticalLayout.addLayout(horizontalLayout7)
         verticalLayout.addLayout(horizontalLayout8)
         verticalLayout.addLayout(horizontalLayout9)
+        verticalLayout.addLayout(horizontalLayout10)
    
         verticalLayout.addStretch(1)
         self.groupBox.setLayout(verticalLayout)
@@ -485,7 +532,15 @@ class DebugWindow(QWidget):
         self.setWindowTitle("EXPRESSION DATA")
         self.resize(400,300)
         self.setStyleSheet("background-color : black ; font :white")
-       
+
+    def image_data_slot(self,image_data):
+        print("IMAGE RECEIVED")
+        pix = QPixmap.fromImage(image_data)
+        pix_image = QPixmap(pix)
+        self.live.setPixmap(pix_image)
+        self.live.setAlignment(Qt.AlignCenter)
+        print("IMAGE RECEIVED 2")
+               
     def updateDataMO(self,value):
         #print(str(value))
         self.mouth_Open_Counter_Value.setText(str(value))
@@ -536,6 +591,32 @@ class DebugWindow(QWidget):
         self.thread.start()
 
 
+
+
+class QStartLiveVideoWidget(QWidget):
+    def __init__(self,parent=None):
+        super(QStartLiveVideoWidget,self).__init__(parent)
+        self.image = QImage()
+        self._min_size = (30,30)
+
+    def image_data_slot(self,image_data):
+        print("IMAGE RECEIVED")
+        self.image = image_data
+        print("IMAGE RECEIVED 2")
+        if self.image.size() != self.size():
+            print("IMAGE RECEIVED 3 ")
+            self.setFixedSize(self.image.size())
+            print("IMAGE RECEIVED 3 ")
+        print("IMAGE RECEIVED 4")
+        self.update()
+        print("IMAGE RECEIVED 5")
+
+    def paintEvent(self,event):
+        painter = QPainter(self)
+        painter.drawImage(0,0,self.Image)
+        self.image = QtGui.QImage()
+
+                           
     
 
 #=============================================================================================================
